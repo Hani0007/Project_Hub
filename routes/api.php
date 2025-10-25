@@ -9,25 +9,9 @@ use Illuminate\Support\Facades\Route;
 
 
 Route::apiResource('projects', ProjectController::class);
-
-//============================================================================================//
-  //                  TASK CRUD Routes
-//=============================================================================================//
-
 Route::apiResource('tasks', TaskController::class);
-
-
-//============================================================================================//
-  //                  STATUS CRUD Routes
-//=============================================================================================//
 Route::apiResource('statuses', StatusController::class);
-
-//============================================================================================//
-  //                  COMMENTS CRUD ROUTES
-//=============================================================================================//
-
 Route::apiResource('comments', CommentController::class);
-
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
