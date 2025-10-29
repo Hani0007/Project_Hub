@@ -8,12 +8,14 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
+
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $projects = Project::with(['user'])->get();
+        $user = $request->user();
+        $projects = Project::with('user')->Where('user_id',$user->id)->get();
         return response()->json($projects);
 
     }
@@ -26,10 +28,14 @@ class ProjectController extends Controller
         $validated = $request->validate([
             'title' => 'required|string',
             'description' => 'required|string',
-            'user_id' => 'required|exists:users,id',
         ]);
 
-        $project = Project::create($validated);
+        $project = Project::create([
+            'title'=>$validated['title'],
+            'description'=> $validated['description'],
+             'user_id'=>$request->user()->id,
+
+        ]);
 
         return response()->json([
             'message' => 'Project created successfully',
@@ -41,9 +47,9 @@ class ProjectController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
-    {
-         $project = Project::FindOrFail($id);
+    public function show(Request $request,string $id)
+    {   
+        $project = Project::where('id',$id)->where('user_id',$request->user()->id)->fistOrFail();
          return response()->json([
          'message'=> "Project With ID {$id}",
        'data'=> $project
@@ -62,11 +68,10 @@ class ProjectController extends Controller
     // Validate incoming data
     $validatedData = $request->validate([
         'title' => 'required|string|max:255',
-        'user_id' => 'required|integer|exists:users,id',
         'description'=>'required|string',
     ]);
-    $project = Project::findOrFail($id);
-    $project->update($validatedData);
+
+    $project = Project::where('id', $id)->where('user_id', $request->user()->id)->first();
     return response()->json([
     'message' => "Project with ID {$id} has been updated successfully.",
     'data' => $project
@@ -77,8 +82,8 @@ class ProjectController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id){
-    $project = Project::find($id);
+    public function destroy(Request  $request ,string $id){
+     $project = Project::where('id',$id)->where('user_id', $request->user()->id)->first();
     $project->delete();
     return response()->json([
         'message' => 'Delete Successfully',

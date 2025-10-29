@@ -11,13 +11,13 @@ class TaskController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $user =  $request->user();
         $tasks = Task::with([
             'project:id,title',
             'status:id,status_name'
-        ])->get();
-
+        ])->where('user_id',$user->id)->get();
         return response()->json([
             'message' => 'All Tasks Retrieved Successfully',
             'data' => $tasks
@@ -32,12 +32,17 @@ class TaskController extends Controller
         $validated = $request->validate([
             'task_name' => 'required|string|max:255',
             'task_description' => 'required|string',
-            'project_id' => 'required|integer|exists:projects,id',
-            'status_id' => 'required|integer|exists:statuses,id',
-            'comment_id' => 'nullable|integer|exists:comments,id'
+            'project_id' => 'required|exists:projects,id',
+             'status_id' => 'required|exists:statuses,id',
         ]);
 
-        $task = Task::create($validated);
+        $task = Task::create([
+            'task_name'=> $validated['task_name'],
+            'task_description'=> $validated['task_description'],
+             'user_id'=>   $request->user()->id,    //authenticated user
+             'project_id'=>$validated['project_id'],
+             'status_id' => $validated['status_id']
+        ]);
 
         return response()->json([
             'message' => 'Task Created Successfully',
@@ -48,12 +53,13 @@ class TaskController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show( Request $request , string $id)
     {
+        $user = $request->user();
         $task = Task::with([
             'project:id,title',
-            'status:id,status_name'
-        ])->find($id);
+            'status:id,status_name',
+        ])->where('user_id', $user->id)->where('id',$id)->first();
 
         if (!$task) {
             return response()->json(['message' => 'Task Not Found'], 404);
@@ -70,7 +76,8 @@ class TaskController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $task = Task::find($id);
+        $user = $request->user();
+        $task = Task::where('id', $id)->where('user_id',$request->user()->id)->first();
         if (!$task) {
             return response()->json(['message' => 'Task Not Found'], 404);
         }
@@ -94,9 +101,10 @@ class TaskController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Request $request ,string $id)
     {
-        $task = Task::find($id);
+        $user = $request->user();
+        $task = Task::where('id', $id)->where('user_id', $request->user()->id)->first();
         if (!$task) {
             return response()->json(['message' => 'Task Not Found'], 404);
         }
