@@ -10,7 +10,7 @@ class Comment extends Model
     protected  $fillable = [
         'comment_text',
         'user_id',
-        'task_id',
+        'project_id'
 
     ];
     public function user(){
@@ -20,7 +20,10 @@ class Comment extends Model
   public function task(){
         return $this->belongsTo(Task::class);
   }
-
+public function project()
+    {
+        return $this->belongsTo(Project::class);
+    }
 
 
 
