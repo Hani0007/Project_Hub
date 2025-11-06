@@ -8,16 +8,18 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-
     /**
      * Display a listing of the resource.
+     * (Shows only projects owned by the authenticated user)
      */
     public function index(Request $request)
     {
-        $user = $request->user();
-        $projects = Project::with('user')->Where('user_id',$user->id)->get();
-        return response()->json($projects);
+        $user = $request->user(); // authenticated user
+        $projects = Project::with('user')
+            ->where('user_id', $user->id)
+            ->get();
 
+        return response()->json($projects);
     }
 
     /**
@@ -26,15 +28,15 @@ class ProjectController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|string',
+            'title' => 'required|string|max:255',
             'description' => 'required|string',
         ]);
 
+        // Automatically assign authenticated user ID
         $project = Project::create([
-            'title'=>$validated['title'],
-            'description'=> $validated['description'],
-             'user_id'=>$request->user()->id,
-
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'user_id' => $request->user()->id,
         ]);
 
         return response()->json([
@@ -43,51 +45,57 @@ class ProjectController extends Controller
         ], 201);
     }
 
-
     /**
      * Display the specified resource.
      */
-    public function show(Request $request,string $id)
-    {   
-        $project = Project::where('id',$id)->where('user_id',$request->user()->id)->fistOrFail();
-         return response()->json([
-         'message'=> "Project With ID {$id}",
-       'data'=> $project
+    public function show(Request $request, string $id)
+    {
+        $project = Project::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
 
-         ]);
-
-
+        return response()->json([
+            'message' => "Project with ID {$id}",
+            'data' => $project
+        ]);
     }
-
 
     /**
      * Update the specified resource in storage.
      */
-  public function update(Request $request, string $id)
-{
-    // Validate incoming data
-    $validatedData = $request->validate([
-        'title' => 'required|string|max:255',
-        'description'=>'required|string',
-    ]);
+    public function update(Request $request, string $id)
+    {
+        $validatedData = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+        ]);
 
-    $project = Project::where('id', $id)->where('user_id', $request->user()->id)->first();
-    return response()->json([
-    'message' => "Project with ID {$id} has been updated successfully.",
-    'data' => $project
-    ]);
-}
+        $project = Project::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
 
+        $project->update($validatedData);
+
+        return response()->json([
+            'message' => "Project with ID {$id} has been updated successfully.",
+            'data' => $project
+        ]);
+    }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request  $request ,string $id){
-     $project = Project::where('id',$id)->where('user_id', $request->user()->id)->first();
-    $project->delete();
-    return response()->json([
-        'message' => 'Delete Successfully',
-        'data' => "Deleted {$id}"
-    ], 200);
-}
+    public function destroy(Request $request, string $id)
+    {
+        $project = Project::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        $project->delete();
+
+        return response()->json([
+            'message' => 'Deleted successfully',
+            'data' => "Deleted project ID {$id}"
+        ], 200);
+    }
 }
