@@ -3,28 +3,24 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Project;
+use App\Services\ProjectService;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     * (Shows only projects owned by the authenticated user)
-     */
+    protected $projectService;
+
+    public function __construct(ProjectService $projectService)
+    {
+        $this->projectService = $projectService;
+    }
+
     public function index(Request $request)
     {
-        $user = $request->user(); // authenticated user
-        $projects = Project::with('user')
-            ->where('user_id', $user->id)
-            ->get();
-
+        $projects = $this->projectService->getAllProjects($request->user()->id);
         return response()->json($projects);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -32,12 +28,9 @@ class ProjectController extends Controller
             'description' => 'required|string',
         ]);
 
-        // Automatically assign authenticated user ID
-        $project = Project::create([
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'user_id' => $request->user()->id,
-        ]);
+        $validated['user_id'] = $request->user()->id;
+
+        $project = $this->projectService->createProject($validated);
 
         return response()->json([
             'message' => 'Project created successfully',
@@ -45,57 +38,44 @@ class ProjectController extends Controller
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Request $request, string $id)
+    public function show(Request $request, $id)
     {
-        $project = Project::where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->firstOrFail();
+        $project = $this->projectService->getProject($id, $request->user()->id);
 
-        return response()->json([
-            'message' => "Project with ID {$id}",
-            'data' => $project
-        ]);
+        if (!$project) {
+            return response()->json(['message' => 'Project not found'], 404);
+        }
+
+        return response()->json(['data' => $project]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
-        $validatedData = $request->validate([
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'required|string',
         ]);
 
-        $project = Project::where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->firstOrFail();
+        $project = $this->projectService->updateProject($id, $validated, $request->user()->id);
 
-        $project->update($validatedData);
+        if (!$project) {
+            return response()->json(['message' => 'Project not found or unauthorized'], 404);
+        }
 
         return response()->json([
-            'message' => "Project with ID {$id} has been updated successfully.",
+            'message' => 'Project updated successfully',
             'data' => $project
         ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Request $request, string $id)
+    public function destroy(Request $request, $id)
     {
-        $project = Project::where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->firstOrFail();
+        $deleted = $this->projectService->deleteProject($id, $request->user()->id);
 
-        $project->delete();
+        if (!$deleted) {
+            return response()->json(['message' => 'Project not found or unauthorized'], 404);
+        }
 
-        return response()->json([
-            'message' => 'Deleted successfully',
-            'data' => "Deleted project ID {$id}"
-        ], 200);
+        return response()->json(['message' => 'Project deleted successfully']);
     }
 }
