@@ -1,100 +1,90 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Statuses;
+use App\Services\StatusService;
+
 class StatusController extends Controller
 {
-    // GET /api/statuses
- // In StatusController
-public function index(Request $request)
-{
-    $user = $request->user(); // authenticated user via Sanctum
+    protected $service;
 
-    $statuses = Statuses::all();
+    public function __construct(StatusService $service)
+    {
+        $this->service = $service;
+    }
 
-    return response()->json([
-        'message' => 'Statuses retrieved successfully',
-        'data' => $statuses
-    ], 200);
-}
+    public function index(Request $request)
+    {
+        $statuses = $this->service->getAll();
 
+        return response()->json([
+            'message' => 'Statuses retrieved successfully',
+            'data' => $statuses
+        ], 200);
+    }
 
-    // POST /api/statuses
     public function store(Request $request)
     {
         $validated = $request->validate([
             'status_name' => 'required|string|max:255',
         ]);
 
-        //Attaching Authenticated User With Status
-         $validated['user_id'] = $request->user()->id;
-        $status = Statuses::create($validated);
+        $validated['user_id'] = $request->user()->id;
+
+        $status = $this->service->create($validated);
+
         return response()->json([
             'message' => 'Status created successfully',
             'data' => $status
         ], 201);
     }
 
-    // GET /api/statuses/{id}
     public function show(Request $request, $id)
-{
-    $user = $request->user();
-    $status = Statuses::where('id', $id)
-        ->where('user_id', $user->id)
-        ->first();
+    {
+        $userId = $request->user()->id;
 
-    if (!$status) {
-        return response()->json(['message' => 'Status not found'], 404);
+        $status = $this->service->getById($id, $userId);
+
+        if (!$status) {
+            return response()->json(['message' => 'Status not found'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Status retrieved successfully',
+            'data' => $status
+        ], 200);
     }
 
-    return response()->json([
-        'message' => 'User-specific status retrieved successfully',
-        'data' => $status
-    ], 200);
-}
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'status_name' => 'required|string|max:255',
+        ]);
 
+        $updated = $this->service->update($id, $validated);
 
-  // PUT /api/statuses/{id}
-public function update(Request $request, $id)
-{
-    $user = $request->user();
-    $status = Statuses::find($id);
-    if (!$status) {
-        return response()->json(['message' => 'Status not found'], 404);
+        if (!$updated) {
+            return response()->json(['message' => 'Status not found'], 404);
+        }
+
+        return response()->json([
+            'message' => 'Status updated successfully',
+            'data' => $updated
+        ], 200);
     }
 
-    // Validate input
-    $validated = $request->validate([
-        'status_name' => 'required|string|max:255',
-    ]);
+    public function destroy(Request $request, $id)
+    {
+        $userId = $request->user()->id;
 
-    // Update the status
-    $status->update($validated);
+        $deleted = $this->service->delete($id, $userId);
 
-    return response()->json([
-        'message' => 'Status updated successfully',
-        'data' => $status,
-    ], 200);
-}
+        if (!$deleted) {
+            return response()->json(['message' => 'Status not found'], 404);
+        }
 
- // DELETE /api/statuses/{id}
-public function destroy(Request $request, $id)
-{
-    // Ensure user is authenticated
-    $user = $request->user();
-
-    // Find the status
-    $status = Statuses::find($id);
-
-    // Handle not found
-    if (!$status) {
-        return response()->json(['message' => 'Status not found'], 404);
+        return response()->json(['message' => 'Status deleted successfully'], 200);
     }
-
-    $status->delete();
-
-    return response()->json(['message' => 'Status deleted successfully'], 200);
-}
 }
