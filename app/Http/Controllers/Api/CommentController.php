@@ -4,16 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Comment;
+use App\Services\CommentService;
 
 class CommentController extends Controller
 {
-    // ✅ GET /api/comments (Requires Sanctum Auth)
+    protected $commentService;
+
+    public function __construct(CommentService $commentService)
+    {
+        $this->commentService = $commentService;
+    }
+
     public function index(Request $request)
     {
-        $comments = Comment::with(['user:id,name', 'task:id,task_name'])
-            ->where('user_id', $request->user()->id)
-            ->get();
+        $userId = $request->user()->id;
+        $comments = $this->commentService->getAllComments($userId);
 
         return response()->json([
             'message' => 'All comments retrieved successfully',
@@ -21,34 +26,28 @@ class CommentController extends Controller
         ], 200);
     }
 
-   public function store(Request $request)
-{
-    $user = $request->user();
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'comment_text' => 'required|string',
+            'project_id' => 'required|exists:projects,id'
+        ]);
 
-    $validated = $request->validate([
-        'comment_text' => 'required|string',
-        'project_id' => 'required|exists:projects,id'
-    ]);
+        // FIX: Attach authenticated user_id
+        $validated['user_id'] = $request->user()->id;
 
-    $comment = Comment::create([
-        'comment_text' => $validated['comment_text'],
-        'project_id' => $validated['project_id'],
-        'user_id' => $user->id
-    ]);
+        $comment = $this->commentService->createComment($validated);
 
-    return response()->json([
-        'message' => 'Comment created successfully',
-        'data' => $comment
-    ], 201);
-}
+        return response()->json([
+            'message' => 'Comment created successfully',
+            'data' => $comment
+        ], 201);
+    }
 
-    // ✅ GET /api/comments/{id} (Requires Sanctum Auth)
     public function show(Request $request, $id)
     {
-        $comment = Comment::with(['user:id,name'])
-            ->where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->first();
+        $userId = $request->user()->id;
+        $comment = $this->commentService->getCommentById($id, $userId);
 
         if (!$comment) {
             return response()->json(['message' => 'Comment not found'], 404);
@@ -60,22 +59,20 @@ class CommentController extends Controller
         ]);
     }
 
-    // ✅ PUT /api/comments/{id} (Requires Sanctum Auth)
     public function update(Request $request, $id)
     {
-        $comment = Comment::where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->first();
-
-        if (!$comment) {
-            return response()->json(['message' => 'Comment not found or unauthorized'], 404);
-        }
-
         $validated = $request->validate([
             'comment_text' => 'required|string|max:1000',
         ]);
 
-        $comment->update($validated);
+        $userId = $request->user()->id;
+
+        // FIX: Use service to update comment, removing redundant DB query
+        $comment = $this->commentService->updateComment($id, $validated, $userId);
+
+        if (!$comment) {
+            return response()->json(['message' => 'Comment not found or unauthorized'], 404);
+        }
 
         return response()->json([
             'message' => 'Comment updated successfully',
@@ -83,19 +80,18 @@ class CommentController extends Controller
         ]);
     }
 
-    // ✅ DELETE /api/comments/{id} (Requires Sanctum Auth)
     public function destroy(Request $request, $id)
     {
-        $comment = Comment::where('id', $id)
-            ->where('user_id', $request->user()->id)
-            ->first();
+        $userId = $request->user()->id;
+
+        // FIX: Use service to delete comment
+        $comment = $this->commentService->deleteComment($id, $userId);
 
         if (!$comment) {
             return response()->json(['message' => 'Comment not found or unauthorized'], 404);
         }
 
-        $comment->delete();
-
         return response()->json(['message' => 'Comment deleted successfully']);
     }
 }
+?>
